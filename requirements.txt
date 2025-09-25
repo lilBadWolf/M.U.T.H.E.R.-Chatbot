@@ -1,0 +1,4 @@
+# requirements.txt
+discord.py>=2.3.2  # Replaces 'discord'
+aiohttp>=3.9.5
+python-dotenv>=1.0.0
