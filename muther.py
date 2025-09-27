@@ -12,25 +12,31 @@ import functools
 # Load your Discord token securely from a .env file
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-LOCALAI_URL = os.getenv('LOCALAI_CHAT_URL')
-LOCALAI_IMAGE_URL = os.getenv('LOCALAI_IMAGE_URL')
-MODEL_GEMMA = os.getenv('MODEL_GEMMA')
-MODEL_FALCON = os.getenv('falcon3-3b-instruct-abliterated')
-MODEL_DREAMSHAPER = os.getenv('dreamshaper')
+# api endpoints
+LOCALAI_CHAT_URL="http://localhost:8080/v1/chat/completions"
+LOCALAI_DETECT_URL="http://localhost:8080/v1/detection"
+LOCALAI_IMAGE_URL="http://localhost:8080/v1/images/generations"
 
-CHAT_TEMPERATURE = os.getenv('CHAT_TEMPERATURE')
-MESSAGE_CHARACTER_LIMIT = os.getenv('MESSAGE_CHARACTER_LIMIT')
-IMAGE_SIZE = os.getenv('IMAGE_SIZE')
+# !ask chat settings
+CHAT_TEMPERATURE=0.3
+MESSAGE_CHARACTER_LIMIT=2000
+SYSTEM_PROMPT="You are M.U.T.H.E.R. an AI. Answer questions concisely. Your response MUST be 1500 characters or less! Do not show any disclaimers or messages about being a chatbot."
+MODEL_GEMMA="gemma-3-4b-it" # gemma-3-4b with tool-use
+MODEL_FALCON="falcon3-3b-instruct-abliterated" # uncensored but not as smart
+
+# !generate settings
+MODEL_DREAMSHAPER="dreamshaper"
+IMAGE_SIZE="240x320"
 
 # ANSI escape codes for colors
-RESET = os.getenv('RESET')
-red = os.getenv('red')
-green = os.getenv('green')
-yellow = os.getenv('yellow')
-blue = os.getenv('blue')
-magenta	= os.getenv('magenta')
-cyan = os.getenv('cyan')
-BOLD = os.getenv('BOLD')
+RESET="\033[0m"
+red="\033[31m"
+green="\033[32m"
+yellow="\033[33m"
+blue="\033[34m"
+magenta="\033[35m"
+cyan="\033[36m"
+BOLD="\033[1m"
 
 SYSTEM_PROMPT = os.getenv('SYSTEM_PROMPT')
 
@@ -75,7 +81,7 @@ async def fetch_and_encode_image(session, url):
 
 @bot.event
 async def on_ready():
-    print(f'{BOLD}{yellow}{bot.user}{RESET} is {BOLD}{green}Online{RESET}')
+    print(f'{BOLD}{yellow}{bot.user.name}{RESET} is {BOLD}{green}Online{RESET} and listening...')
 
 @bot.event
 async def on_message(message):
@@ -100,15 +106,8 @@ async def on_message(message):
 @bot.command(name='ask')
 async def ask(ctx, *, prompt: str = None):
     """Handles the core logic for processing messages and images."""
-    if ctx.guild and not prompt and not ctx.message.attachments:
+    if ctx.guild and not prompt:
         await ctx.send("Where is Dr. Venture?")
-        return
-
-    is_dm = isinstance(ctx.channel, discord.DMChannel)
-    if is_dm and not prompt and ctx.message.attachments:
-        prompt = "What is in this image?"
-
-    if not prompt and not ctx.message.attachments:
         return
 
     print(f"{cyan}{ctx.guild.name if ctx.guild else 'DM'} - {RESET}{BOLD}{green}{ctx.author.display_name}{RESET} said: {yellow}{prompt}{RESET}")
@@ -120,17 +119,9 @@ async def ask(ctx, *, prompt: str = None):
             content_list = []
             if prompt:
                 content_list.append({"type": "text", "text": prompt})
-
-            if ctx.message.attachments:
-                for attachment in ctx.message.attachments:
-                    if 'image' in attachment.content_type:
-                        base64_image = await fetch_and_encode_image(session, attachment.url)
-                        if base64_image:
-                            content_list.append({"type": "image_url", "image_url": {"url": base64_image}})
-                        break
             
             payload = {
-                "model": "falcon3-3b-instruct-abliterated",
+                "model": MODEL_GEMMA,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": content_list}
@@ -139,7 +130,7 @@ async def ask(ctx, *, prompt: str = None):
             }
 
             headers = {"Content-Type": "application/json"}
-            async with session.post(LOCALAI_URL, headers=headers, json=payload) as response:
+            async with session.post(LOCALAI_CHAT_URL, headers=headers, json=payload) as response:
                 response.raise_for_status()
                 data = await response.json()
 
